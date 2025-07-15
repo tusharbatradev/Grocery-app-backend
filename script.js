@@ -3,11 +3,12 @@ const express = require("express");
 const connectDB = require("./config/db");
 const cors = require("cors");
 const User = require("./Models/users");
+const { validateSignUp } = require("./utils/validation");
+const bcrypt = require("bcrypt");
 
 dotenv.config();
 const app = express();
 connectDB();
-
 app.use(cors());
 app.use(express.json());
 
@@ -19,16 +20,53 @@ function checkSkills(skills) {
 // Add User
 app.post("/signup", async (req, res) => {
   try {
-    const user = new User(req.body);
+    const { firstName, lastName, email, password } = req.body;
+
+    // Validation
+    validateSignUp(req);
+
+    // Encrypt
+    const passwordHash = await bcrypt.hash(password, 10);
+    console.log(passwordHash);
+
+    // Creating new instance
+    const user = new User({
+      firstName,
+      lastName,
+      email,
+      password: passwordHash,
+    });
+
     if (!checkSkills(user.skills)) {
       throw new Error("Cannot add skills more than 3");
     }
     await user.save();
     res.status(200).send("User Added Successfully" + user);
   } catch (err) {
-    res.status(400).send("Error in adding user" + err.message);
+    res.status(400).send("ERROR: " + err.message);
   }
 });
+
+// Login User
+app.post("/login", async (req, res) => {
+  try{
+    const {email, password} = req.body;
+
+    const user = await User.findOne({email : email});
+    if(!user){
+      throw new Error("Invalid Credentials")
+    }
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if(isPasswordValid){
+      res.send("Login Succesfull!")
+    } else{
+      res.status(400).send("Password is incorrect")
+    }
+  } catch (err){
+    res.status(400).send("ERROR :"+err)
+  }
+}) 
 
 // All users
 app.get("/users", async (req, res) => {
@@ -89,7 +127,7 @@ app.delete("/delete/:id", async (req, res) => {
 // Patch user by id
 app.patch("/update/:id", async (req, res) => {
   try {
-    const id = req.params.id; 
+    const id = req.params.id;
     const data = req.body;
 
     // Allowed Updated
@@ -101,12 +139,12 @@ app.patch("/update/:id", async (req, res) => {
       "age",
       "gender",
       "about",
-      "skills"
+      "skills",
     ];
     const isUpdateAllowed = Object.keys(data).every((k) => {
       return ALLOWED_UPDATES.includes(k);
     });
-    if (!isUpdateAllowed) { 
+    if (!isUpdateAllowed) {
       throw new Error("Update not allowed");
     }
 
