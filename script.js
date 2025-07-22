@@ -5,19 +5,23 @@ const cors = require("cors");
 const User = require("./Models/users");
 const { validateSignUp } = require("./utils/validation");
 const bcrypt = require("bcrypt");
+const cookieParser = require("cookie-parser");
+const jwt = require("jsonwebtoken");
+const { userAuth } = require("./middlewares/auth");
 
 dotenv.config();
 const app = express();
 connectDB();
 app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
 
-// Skill validator
+// Skills validator
 function checkSkills(skills) {
   return skills.length > 3 ? false : true;
 }
 
-// Add User
+// Signup User
 app.post("/signup", async (req, res) => {
   try {
     const { firstName, lastName, email, password } = req.body;
@@ -27,7 +31,6 @@ app.post("/signup", async (req, res) => {
 
     // Encrypt
     const passwordHash = await bcrypt.hash(password, 10);
-    console.log(passwordHash);
 
     // Creating new instance
     const user = new User({
@@ -49,27 +52,46 @@ app.post("/signup", async (req, res) => {
 
 // Login User
 app.post("/login", async (req, res) => {
-  try{
-    const {email, password} = req.body;
+  try {
+    const { email, password } = req.body;
 
-    const user = await User.findOne({email : email});
-    if(!user){
-      throw new Error("Invalid Credentials")
+    const user = await User.findOne({ email: email });
+    if (!user) {
+      throw new Error("Invalid Credentials");
     }
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await user.validatePassword(password);
 
-    if(isPasswordValid){
-      res.send("Login Succesfull!")
-    } else{
-      res.status(400).send("Password is incorrect")
+    if (isPasswordValid) {
+      const token = await user.getJWT();
+
+      res.cookie("token", token, {
+        expires: new Date(Date.now() + 8 * 3600000),
+      });
+      res.send("Login Succesfull!");
+    } else {
+      res.status(400).send("Password is incorrect");
     }
-  } catch (err){
-    res.status(400).send("ERROR :"+err)
+  } catch (err) {
+    res.status(400).send("ERROR :" + err);
   }
-}) 
+});
+
+app.get("/profile", userAuth, async (req, res) => {
+  try {
+    const user = req.user;
+
+    if (!user) {
+      throw new Error("User doesn't exist");
+    }
+
+    res.send(user);
+  } catch (err) {
+    res.status(400).send("ERROR :" + err);
+  }
+});
 
 // All users
-app.get("/users", async (req, res) => {
+app.get("/users", userAuth, async (req, res) => {
   try {
     const users = await User.find({});
     if (users.length === 0) {
