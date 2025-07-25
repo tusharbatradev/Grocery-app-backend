@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const validator = require("validator");
 const jwt = require("jsonwebtoken");
-const bcrypt = require("bcrypt")
+const bcrypt = require("bcrypt");
 
 const userSchema = new mongoose.Schema(
   {
@@ -59,10 +59,10 @@ const userSchema = new mongoose.Schema(
     },
     gender: {
       type: String,
-      enums : {
-        values : ["male","female","others"],
-        message : `{VALUE} is incorrect type`
-      }
+      enums: {
+        values: ["male", "female", "others"],
+        message: `{VALUE} is incorrect type`,
+      },
     },
     photoUrl: {
       type: String,
@@ -101,9 +101,15 @@ userSchema.methods.validatePassword = async function (passwordInputByUser) {
   const user = this;
   const passwordHash = user.password;
 
-  const isPasswordValid = await bcrypt.compare(passwordInputByUser, passwordHash);
+  const isPasswordValid = await bcrypt.compare(
+    passwordInputByUser,
+    passwordHash
+  );
 
-  return isPasswordValid
+  return isPasswordValid;
 };
+
+userSchema.indexes({ firstName: 1 });
+userSchema.indexes({ gender: 1 });
 
 module.exports = mongoose.model("User", userSchema);
