@@ -36,10 +36,10 @@ requestRouter.post(
 
       // Id validation
       const isUser = await User.findById(toUserId);
-      if(!isUser){
+      if (!isUser) {
         return res.status(400).json({
-            message : "User don't exist"
-        })
+          message: "User don't exist",
+        });
       }
 
       const ConnectionRequest = new connectionRequest({
@@ -60,5 +60,43 @@ requestRouter.post(
   }
 );
 
+requestRouter.post(
+  "/request/review/:status/:requestId",
+  userAuth,
+  async (req, res) => {
+    try {
+      const { status, requestId } = req.params;
+      const loggedInUser = req.user;
 
+      const allowedStatus = ["accepted", "rejected"];
+      if (!allowedStatus.includes(status)) {
+        return res.status(400).json({
+          message: "Invalid Status type",
+        });
+      }
+
+      const ConnectionRequest = await connectionRequest.findOne({
+        _id: requestId,
+        toUserId: loggedInUser._id,
+        status: "interested"
+      });
+
+      if (!ConnectionRequest) {
+        return res.status(404).json({
+          message: "Connection request not found",
+        });
+      }
+
+      ConnectionRequest.status = status;
+      const data = await ConnectionRequest.save();
+
+      res.status(200).json({
+        message: `Connection request ${status}`,
+        data,
+      });
+    } catch (err) {
+      res.status(400).send("ERROR : " + err.message);
+    }
+  }
+);
 module.exports = requestRouter;
